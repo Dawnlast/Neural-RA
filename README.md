@@ -6,8 +6,6 @@
 
 **SAC-RA-Discrete.py** integrates Ring Attractor into SAC-Discrete.py.
 
-**DDPG.py** uses DDPG method on CONTINUOUS action space task Pendulum-v1.
-
-**DDPG-RA.py** integrates Ring Attractor into DDPG.py.
+**DDPG-RA.py** uses both DDPG method and DDPG-RA on CONTINUOUS action space task Pendulum-v1.
 
 TO ADD...
