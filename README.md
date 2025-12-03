@@ -1,3 +1,5 @@
+# README
+
 **SAC.py** uses SAC method on CONTINUOUS action space task Pendulum-v1.
 
 **SAC-RA.py** integrates Ring Attractor into SAC.py.
