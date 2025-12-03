@@ -19,10 +19,6 @@ import matplotlib.pyplot as plt
 
 
 def smooth_curve(values, weight=0.9):
-    """
-    Exponential Moving Average (EMA) 平滑
-    weight 越大越平滑 (0.9~0.98 推荐)
-    """
     smoothed = []
     last = values[0]
     for v in values:
@@ -65,13 +61,6 @@ class SimulationParams:
 class RingAttractor:
     def __init__(self, sim_params: Optional[SimulationParams] = None,
                  net_params: Optional[NetworkParams] = None):
-        """
-        Initialize Ring Attractor network.
-
-        Args:
-            sim_params: Optional simulation parameters. If None, uses defaults
-            net_params: Optional network parameters. If None, uses defaults
-        """
         # Initialize parameters with defaults if not provided
         self.sim_params = sim_params or SimulationParams()
         self.net_params = net_params or NetworkParams()
@@ -103,12 +92,6 @@ class RingAttractor:
             0)  # Inhibitory self-connection weight, simplified as Inhibitory is placed in the middle of the ring.
 
     def _compute_weight_matrix(self) -> np.ndarray:
-        """
-        Compute wEE matrix based on neural distances.
-
-        Returns:
-            2D array of connection weights between excitatory neurons
-        """
         # Calculate minimum angular differences between all neuron pairs
         # accounting for circular wrapping at 360 degrees
         diff_matrix = np.minimum(
@@ -121,17 +104,6 @@ class RingAttractor:
         return wEE * (self.net_params.wEEk / self.sim_params.n_neurons)
 
     def generate_action_signal(self, Q: float, alpha_a: float, sigma_a: float) -> np.ndarray:
-        """
-        Generate action signal for ring attractor input based on action value and direction.
-
-        Args:
-            Q: Action value Q(s,a) - determines height of the Gaussian
-            alpha_a: Action direction angle in degrees - determines center of the Gaussian
-            sigma_a: Action value variance - determines width of the Gaussian
-
-        Returns:
-            Array of shape (n_neurons, Nt) containing the action signal input for each neuron over time
-        """
         # Calculate minimum angular difference between each neuron's preferred direction
         # and the action direction, accounting for circular wrapping
         diff = np.min([np.abs(self.alpha_n - alpha_a),
@@ -150,15 +122,6 @@ class RingAttractor:
         return x
 
     def action_space_integration(self, action_values: List[Tuple[float, float, float]]) -> int:
-        """
-        Perform action selection following Eqs. 8-9 in paper.
-
-        Args:
-            action_values: List of (Q(s,a), α_a(a), σ_a) tuples for each action
-
-        Returns:
-            Selected action index based on neural activity
-        """
         # Generate all action signals
         input_signals = [self.generate_action_signal(Q, alpha_a, sigma_a)
                          for Q, alpha_a, sigma_a in action_values]
@@ -318,15 +281,6 @@ def calc_target(pi, q1, q2, mini_batch):
 def choose_action_with_RA(pi, state, ring_attractor, K=10):
     """
     使用 PolicyNet 采样 K 个动作，再让 Ring Attractor 选择最终动作。
-
-    Args:
-        pi: PolicyNet
-        state: numpy array, env state
-        ring_attractor: RingAttractor instance
-        K: number of candidate actions
-
-    Returns:
-        final_action: float
     """
     candidates = []
 
@@ -344,16 +298,15 @@ def choose_action_with_RA(pi, state, ring_attractor, K=10):
     action_idx = ring_attractor.action_space_integration(candidates)
 
     # 使用 index 获取最终动作
-    final_action = candidates[action_idx][1] / 180.0 - 1.0  # 映射回 [-1,1]
+    final_action = candidates[action_idx][1] / 180.0 - 1.0  
 
     return final_action, candidates
 
 
 ring_attractor = RingAttractor()
 
-# -------------------------------------------------
-# 1. 单个 seed 的训练
-# -------------------------------------------------
+
+#单个 seed 的训练
 def run_one_seed(seed, num_episodes=800):
     np.random.seed(seed)
     import torch
@@ -414,9 +367,8 @@ def run_one_seed(seed, num_episodes=800):
     return episode_scores
 
 
-# -------------------------------------------------
-# 2. 多 seed 运行入口
-# -------------------------------------------------
+
+#  多 seed 运行
 def run_multi_seed(seeds=list(range(10))):
 
     all_scores = {}
@@ -428,35 +380,24 @@ def run_multi_seed(seeds=list(range(10))):
         all_scores[str(seed)] = scores
         min_len = min(min_len, len(scores))  # 对齐长度（一般都一样）
 
-    # 对齐所有 seed 的长度
     for seed in seeds:
         all_scores[str(seed)] = all_scores[str(seed)][:min_len]
 
-    # 转为 numpy
+
     score_matrix = np.array([all_scores[str(seed)] for seed in seeds])
-
-    # 计算平均
     avg_curve = np.mean(score_matrix, axis=0)
-
-    # 保存到 npz
     np.savez("scores_multi_seed_copy.npz", **all_scores, avg=avg_curve)
 
-    # JSON 保存（可读性更高）
     with open("scores_multi_seed_copy.json", "w") as f:
         json.dump({"seeds": all_scores, "avg": avg_curve.tolist()}, f, indent=4)
 
     print("数据已保存到 scores_multi_seed_copy.npz 和 scores_multi_seed_copy.json")
 
-    # -------------------------------------------------
-    # 3. 绘图
-    # -------------------------------------------------
+
+    # 绘图
     plt.figure(figsize=(10, 6))
 
     episodes = np.arange(min_len)
-
-    # 每条 seed 曲线
-    # for seed in seeds:
-    #     plt.plot(episodes, all_scores[str(seed)], alpha=0.3, linewidth=1)
 
     # 平均曲线
     plt.plot(episodes, avg_curve, label="Mean Score (10 seeds)", linewidth=1)
@@ -473,9 +414,7 @@ def run_multi_seed(seeds=list(range(10))):
     plt.show()
 
 
-# -------------------------------------------------
-# 运行
-# -------------------------------------------------
+
 run_multi_seed()
 
 
@@ -497,84 +436,3 @@ run_multi_seed()
 
 
 
-# def main():
-#     env = gym.make('Pendulum-v1')
-#     memory = ReplayBuffer()
-#
-#     q1, q2, q1_target, q2_target = QNet(lr_q), QNet(lr_q), QNet(lr_q), QNet(lr_q)
-#     pi = PolicyNet(lr_pi)
-#
-#     q1_target.load_state_dict(q1.state_dict())
-#     q2_target.load_state_dict(q2.state_dict())
-#
-#     score = 0.0
-#     score_draw = 0.0
-#     print_interval = 20
-#     episode_scores = []
-#
-#     for n_epi in range(400):
-#         s, info = env.reset()
-#         done = False
-#         truncated = False
-#         count = 0
-#
-#         while count < 200 and not (done or truncated):
-#             # a, log_prob= pi(torch.from_numpy(s).float())
-#             # s_prime, r, terminated, truncated, info = env.step([2.0*a.item()])
-#
-#             # --- RA 决策 ---
-#             a_final, candidate_actions = choose_action_with_RA(pi,s, ring_attractor, K=10)
-#
-#             # 执行动作
-#             s_prime, r, terminated, truncated, info = env.step([2.0 * a_final])
-#
-#             # 在gymnasium中，done被分为terminated和truncated
-#             # terminated: 环境达到终止状态
-#             # truncated: 达到时间限制
-#             done = terminated or truncated
-#             memory.put((s, a_final, r/10.0, s_prime, terminated))  # 使用terminated而不是done
-#             score +=r
-#             score_draw += r
-#             s = s_prime
-#             count += 1
-#
-#         if memory.size()>1000:
-#             for i in range(20):
-#                 mini_batch = memory.sample(batch_size)
-#                 td_target = calc_target(pi, q1_target, q2_target, mini_batch)
-#                 q1.train_net(td_target, mini_batch)
-#                 q2.train_net(td_target, mini_batch)
-#                 entropy = pi.train_net(q1, q2, mini_batch)
-#                 q1.soft_update(q1_target)
-#                 q2.soft_update(q2_target)
-#
-#         if n_epi%print_interval==0 and n_epi!=0:
-#             print("# of episode :{}, avg score : {:.1f} alpha:{:.4f}".format(n_epi, score/print_interval, pi.log_alpha.exp()))
-#             score = 0.0
-#
-#         episode_scores.append(score_draw)
-#         score_draw = 0.0
-#
-#     # ------ Plot learning curve ------
-#     plt.figure(figsize=(10, 6))
-#
-#     episodes = np.arange(len(episode_scores))
-#
-#     plt.plot(episodes, episode_scores, label="Raw Score", linewidth=2)
-#
-#     smoothed = smooth_curve(episode_scores, weight=0.90)
-#     plt.plot(episodes, smoothed, label="Smoothed Score (EMA)", linewidth=3)
-#
-#     plt.xlabel("Training Episodes (in units of print_interval)")
-#     plt.ylabel("Score")
-#     plt.title("Learning Curve of SAC + Ring Attractor")
-#     plt.legend()
-#     plt.grid(True)
-#     plt.tight_layout()
-#     plt.show()
-#
-#
-#     env.close()
-
-# if __name__ == '__main__':
-#     main()
